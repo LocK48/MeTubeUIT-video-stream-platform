@@ -1,0 +1,47 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    restart: unless-stopped
+    env_file:
+      - ./api_server/.env
+    environment:
+      NODE_ENV: production
+      PORT: "8000"
+      REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ""
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    expose:
+      - "8000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    restart: unless-stopped
+    env_file:
+      - ./worker_server/.env
+    environment:
+      NODE_ENV: production
+      PORT: "8001"
+      REDIS_HOST: ${REDIS_HOST:-host.docker.internal}
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ""
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      - api

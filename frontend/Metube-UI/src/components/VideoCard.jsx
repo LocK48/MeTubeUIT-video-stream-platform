@@ -4,8 +4,9 @@ import { timeAgo, displayDuration } from "../utils/cal_in4";
 import { miniView } from "../utils/renderSth.jsx";
 import { formatOut } from "../../../../worker_server/src/util/helper.js";
 import { getUploader } from "../utils/uploader.js";
+import { processedStorageBase } from "../utils/storageUrl.js";
 
-const prefix = "https://s3.vn-hcm-1.vietnix.cloud/processed-video";
+const prefix = processedStorageBase;
 
 const VideoCard = ({ video, isCurrent, theaterMode = false }) => {
   /* Check if video is streaming or not */

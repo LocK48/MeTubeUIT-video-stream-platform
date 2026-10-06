@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { apiBase } from "../service/apiBase.js";
 
-const api_port = 8000;
 
 const EditVideoPage = () => {
   const { videoId } = useParams();
@@ -17,7 +17,7 @@ const EditVideoPage = () => {
     const loadVideo = async () => {
       try {
         const response = await fetch(
-          `http://localhost:${api_port}/metube/${videoId}/edit`,
+          `${apiBase}/${videoId}/edit`,
           {
             credentials: "include",
           },
@@ -50,7 +50,7 @@ const EditVideoPage = () => {
 
     try {
       const response = await fetch(
-        `http://localhost:${api_port}/metube/${videoId}/edit`,
+        `${apiBase}/${videoId}/edit`,
         {
           method: "PATCH",
           credentials: "include",

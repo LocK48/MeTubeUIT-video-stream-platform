@@ -74,8 +74,8 @@ const processVideoJob = async (job) => {
 
       // 4> Upload processed video to vietnix
       await Promise.all([
-          uploadDirToBucket(processedBucket, manifestPrefix, manifestDir),
-          uploadDirToBucket(processedBucket, thumbPrefix, thumbnailDir)
+          uploadDirToBucket(processedBucket, `processed-video/${manifestPrefix}`, manifestDir),
+          uploadDirToBucket(processedBucket, `processed-video/${thumbPrefix}`, thumbnailDir)
       ]);
 
       console.log("[+]---- FINISH ----");

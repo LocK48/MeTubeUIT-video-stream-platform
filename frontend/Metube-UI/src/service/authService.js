@@ -1,9 +1,7 @@
 import axios from 'axios';
+import { apiBase } from './apiBase.js';
 
-const api_port = import.meta.env.VITE_API_SERVER_PORT || '8000';
-const host = `http://localhost:${api_port}/metube`;
-
-console.log('API Host:', host);
+const host = apiBase;
 
 const defaultConfig = {
   withCredentials: true,

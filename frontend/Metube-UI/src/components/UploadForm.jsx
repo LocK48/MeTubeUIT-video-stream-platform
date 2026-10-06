@@ -22,6 +22,7 @@ import { validFileExtension, validFileSize, validMimeType } from '../helper/secu
 // S2  - Initialize DB with videoId & status = "uploading"
 // S3  - Upload raw video to Vietnix
 import { uploadS3 } from '../service/uploadRaw.js'; 
+import { apiOrigin } from '../service/apiBase.js';
 
 // S4  - Upload done & confirm with api server
 // S5  - Api server checks upload confirmation
@@ -35,8 +36,7 @@ import { uploadCnf } from '../service/apiCnf.js';
 // S10 - Api server listens to signal & shoots Socket to UI to close form
 import { whenSubmit } from '../service/afterPress.js';
 
-const api_port = import.meta.env.VITE_API_SERVER_PORT;
-const host = `http://localhost:${api_port}`;
+const host = apiOrigin;
 
 const UploadWizard = ({closeUploadPage}) => {
     const [page, setPage] = useState(1); // Page 1: Upload, Page 2: Details

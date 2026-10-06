@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import ShortPlayer from '../components/ShortPlayer.jsx';
 import { useNavigate } from 'react-router-dom';
+import { processedStorageBase } from '../utils/storageUrl.js';
+import { apiBase } from '../service/apiBase.js';
 
-const api_port = import.meta.env.VITE_API_SERVER_PORT || 8000;
-const hostPath = `http://localhost:${api_port}/metube/videos`;
-const prefix = `https://s3.vn-hcm-1.vietnix.cloud/processed-video`;
+const hostPath = `${apiBase}/videos`;
+const prefix = processedStorageBase;
 
 const ShortsPage = () => {
   const [shorts, setShorts] = useState([]);

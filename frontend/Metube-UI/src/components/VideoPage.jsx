@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 
 import VideoPlayer from '../components/VideoPlayer';
 import Navbar from '../components/Navbar';
+import { processedStorageBase } from '../utils/storageUrl.js';
+import { apiBase } from '../service/apiBase.js';
 
 const VideoPage = () => {
   const { id } = useParams();
@@ -15,9 +17,8 @@ const VideoPage = () => {
   const [countdown, setCountdown] = useState(null); 
   const timerRef = useRef(null);
   
-  const api_port = 8000;
-  const hostPath = `http://localhost:${api_port}/metube/videos`;
-  const videoPrefix = "https://s3.vn-hcm-1.vietnix.cloud/processed-video";
+  const hostPath = `${apiBase}/videos`;
+  const videoPrefix = processedStorageBase;
 
   const nextVideoId = Number(id) + 1; 
 

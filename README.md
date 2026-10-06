@@ -1,108 +1,261 @@
 # MeTube — Video Streaming Platform
 
-MeTube is a small-scale video streaming web application inspired by common streaming platforms. It demonstrates an end-to-end flow for uploading, processing, storing and delivering video content with real-time notifications and a simple subscription model.
+MeTube is a video sharing and streaming application built with React, Express, MongoDB, Redis, and FFmpeg. Users can upload videos, follow channels, watch processed streams, and receive notifications when subscribed channels publish new content.
 
-This repository contains three main components:
+## Features
 
-- `api_server` — Express-based API, MongoDB persistence, Socket.IO for realtime events, and Redis subscription to worker events.
-- `worker_server` — Background processing (FFmpeg), job queues (BullMQ/Redis), and publishing `video_ready` events once processing finishes.
-- `frontend/Metube-UI` — React + Vite single-page application that provides upload, playback, subscription and notification UI.
+- Account registration, sign-in, channel subscriptions, and user profiles.
+- Direct browser-to-object-storage video uploads using short-lived presigned URLs.
+- Background video processing with FFmpeg and HLS output.
+- Object storage through an S3-compatible API. Cloudflare R2 is supported.
+- MongoDB persistence, Redis-backed queues and events, and Socket.IO notifications.
+- React single-page frontend served by Nginx in the production Docker setup.
 
-Table of contents
-- Architecture and flow
-- Prerequisites
-- Setup & running (development)
-- Environment variables
-- Key APIs & behavior
-- Data model notes
-- Troubleshooting & common fixes
-- Contribution
+## Architecture
 
-## Architecture and flow
-
-1. A user uploads a raw video through the frontend. The file is stored to the raw S3 bucket and a job is enqueued.
-2. The `worker_server` processes the video (transcoding, renditions, thumbnail), uploads outputs to the processed S3 bucket and updates the `videoCollection` document with `thumbnailUrl` and related metadata.
-3. When processing completes the worker publishes a `video_ready` message to Redis containing `{ videoId, status }`.
-4. The `api_server` subscribes to the Redis channel. On `video_ready` it:
-	- finds the video and the uploader,
-	- creates Notification documents for subscribers (and a single confirmation notification for the uploader),
-	- emits socket `notification` events to user rooms (Socket.IO).
-5. Frontend clients receive socket notifications (if connected) and render them in the notifications dropdown.
-
-## Prerequisites
-
-- Node.js (16+ recommended)
-- MongoDB (Atlas or local)
-- Redis server (for BullMQ and pub/sub)
-- An S3-compatible storage (Vietnix endpoint in this project) with these buckets: `raw-video`, `processed-video`, `asset`.
-
-## Setup & running (development)
-
-1. Install dependencies for each component:
-
-```bash
-npm install --prefix api_server
-npm install --prefix worker_server
-npm install --prefix frontend/Metube-UI
+```text
+Browser ── API requests / Socket.IO ──> Nginx ──> Express API ──> MongoDB
+   │                                        │            │
+   └── presigned PUT ──> S3-compatible storage          └──> Redis
+                                                        ▲      │
+                                                        └──────┘
+                                                      FFmpeg worker
 ```
 
-2. Copy and fill environment files for `api_server` and `worker_server` (see `.env.example` or relevant `.env` keys below).
+1. The frontend asks the API for a presigned upload URL and uploads the raw video directly to object storage.
+2. The API queues a processing job in Redis.
+3. The worker downloads the raw object, transcodes it into HLS renditions, creates a thumbnail, and uploads the output.
+4. The worker updates MongoDB and publishes a completion event through Redis.
+5. The API notifies the uploader and subscribers through Socket.IO and the notifications API.
 
-3. Start services (recommended to run each in its own terminal):
+## Requirements
 
-```bash
-# start API server
-npm --prefix api_server run start
+For Docker deployment:
 
-# start worker
-npm --prefix worker_server run start
+- A Linux VPS with Docker Engine and the Docker Compose plugin.
+- A reachable MongoDB instance (MongoDB Atlas or self-hosted).
+- A Redis server reachable by the API and worker on TCP port `6379`.
+- An S3-compatible object-storage account. This guide uses Cloudflare R2.
+- A domain and TLS reverse proxy are recommended for production.
 
-# start frontend
-npm --prefix frontend/Metube-UI run start
+For local development, install Node.js 24 or newer for the frontend and Node.js 22 or newer for the API and worker. FFmpeg is included in the worker dependency tree.
+
+## Cloudflare R2 setup
+
+Create an R2 bucket, for example `metub-r2`, and create an R2 S3 API token with the read/write permissions the application needs. The application uses the S3-compatible access key ID and secret access key; the Cloudflare account ID is part of the endpoint URL and is not the access key.
+
+Example endpoint:
+
+```text
+https://<CLOUDFLARE_ACCOUNT_ID>.r2.cloudflarestorage.com
 ```
 
-## Environment variables
+Set all four bucket variables to the same bucket when using one bucket:
 
-The project uses environment variables for DB, Redis and S3 configuration. Example keys used in this repo's `.env` files:
+```dotenv
+BUCKET_RAW_VIDEO=metub-r2
+BUCKET_PROCESSED_VIDEO=metub-r2
+BUCKET_ASSET=metub-r2
+BUCKET_LOG=metub-r2
+```
 
-- `PORT` — API server port (default 8000)
-- `MONGODB_URI` — MongoDB connection string
-- `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` — Redis connection
-- `ENDPOINT` — S3 endpoint (no trailing slash)
-- `BUCKET_RAW_VIDEO`, `BUCKET_PROCESSED_VIDEO`, `BUCKET_ASSET` — bucket names
-- `ACCESS_KEY_ID`, `SECRET_KEY` — S3 credentials
-- `JWT_SECRET` — API JWT secret for authentication
+The application separates content with object-key prefixes inside the bucket, such as `raw-video/`, `processed-video/`, and `asset/avatar/`. These are key prefixes (similar to folders), not separate R2 buckets. The current app stores user-facing assets in R2; check the code before assuming that the log bucket variable is actively used.
 
-Do not commit credentials to source control. Use environment-specific secret managers for production.
+Configure the R2 custom domain (for example, `https://metub.lock48.dpdns.org`) and set `PUBLIC_ASSET_URL` to that public base URL. Set `VITE_PROCESSED_STORAGE_URL` to the public base URL plus `/processed-video`, for example:
 
-## Key APIs & behavior
+```dotenv
+PUBLIC_ASSET_URL=https://metub.lock48.dpdns.org
+VITE_PROCESSED_STORAGE_URL=https://metub.lock48.dpdns.org/processed-video
+```
 
-- Authentication: endpoints for register/login and user profile. The public user endpoint returns `{ user: { id, name, avatarUrl } }`.
-- Subscribe/unsubscribe: `POST /metube/auth/subscribe/:channelId` and `POST /metube/auth/unsubscribe/:channelId`.
-- Notifications: `GET /metube/auth/notifications` and `POST /metube/auth/notifications/:id/read`.
+### R2 CORS
 
-Notification semantics:
-- Subscribers receive a `new_video` notification when a channel they subscribed to publishes a video.
-- The uploader receives a single `upload_success` notification when processing completes. The API will avoid sending the `new_video` message to the uploader to prevent duplicates.
+Allow browser requests from the **application website's origin** (the scheme, host, and optional port where the frontend is served). Do not use the R2 custom domain as the allowed origin unless the frontend itself is hosted on that same origin.
 
-Socket behavior:
-- Clients should connect to the API server's Socket.IO endpoint and emit `join_user` with their user id to receive personal notifications. The server emits to rooms named `user_<userId>`.
+Use a policy along these lines, replacing the origin with your actual website URL:
 
-## Data model notes
+```json
+[
+  {
+    "AllowedOrigins": ["https://your-app.example.com"],
+    "AllowedMethods": ["GET", "HEAD", "PUT"],
+    "AllowedHeaders": ["Content-Type", "Range", "*"],
+    "ExposeHeaders": ["ETag", "Content-Length", "Content-Range", "Accept-Ranges"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
 
-- `videoCollection` documents include `videoId`, `thumbnailUrl`, `userId` (uploader id), and `title`.
-- `notifications` collection stores notifications with fields like `userId`, `from`, `fromName`, `fromAvatar`, `videoId`, `videoThumbnail`, `title`, `type`, `read`, `createdAt`.
+For local development, add the Vite origin (usually `http://localhost:5173`) as a separate allowed origin. Avoid `*` for production origins. Browser uploads use a presigned `PUT` request, so the allowed methods must include `PUT`.
 
-## Troubleshooting & common fixes
+## MongoDB setup
 
-- Dropdown clipped by parent: ensure the frontend renders the notification dropdown using a portal (`createPortal`) or set parent `overflow` to `visible` and use a high `z-index`.
-- Missing avatars in UI: the backend normalizes stored avatar keys to a full URL, and the frontend will fetch public user info to fill missing avatar fields.
-- Socket issues: confirm Redis and API server are up, and that the client successfully calls `socket.emit('join_user', userId)` after connecting.
+Provide either a complete `MONGODB_URI`, or the connection pieces used by this project: `MONGODB_USER`, `MONGODB_PASSWORD`, `MONGODB_APPNAME_SALT`, and `MONGODB_APPNAME`. Prefer a MongoDB database user restricted to the application database. For Atlas, add the VPS's outbound IP address to the project's network access allowlist; avoid opening database access to every IP for production.
 
-## Scripts
+## Environment configuration
 
-- `api_server/scripts/backfillNotifications.js` — populate existing notifications with `videoThumbnail` from the `videoCollection` when needed.
+The repository intentionally does not include production `.env` files. Create these files on the deployment host; do not commit them:
 
-## Contribution
+- `api_server/.env`
+- `worker_server/.env`
+- `frontend/Metube-UI/.env` (only needed when building the frontend outside Docker; the Compose frontend build uses same-origin API routing)
 
-Contributions are welcome. Please open issues describing bugs or feature requests, and submit pull requests with focused changes. Ensure that secrets are not included in PRs.
+### API: `api_server/.env`
+
+```dotenv
+PORT=8000
+MONGODB_URI=<mongodb-connection-string>
+REDIS_HOST=<redis-host-as-seen-from-the-container>
+REDIS_PORT=6379
+REDIS_PASSWORD=
+
+ENDPOINT=https://<CLOUDFLARE_ACCOUNT_ID>.r2.cloudflarestorage.com
+ACCESS_KEY_ID=<r2-s3-access-key-id>
+SECRET_KEY=<r2-s3-secret-access-key>
+BUCKET_RAW_VIDEO=metub-r2
+BUCKET_PROCESSED_VIDEO=metub-r2
+BUCKET_ASSET=metub-r2
+BUCKET_LOG=metub-r2
+PUBLIC_ASSET_URL=https://your-r2-custom-domain.example.com
+
+JWT_SECRET=<long-random-secret>
+SESSION_SECRET=<long-random-secret>
+AES_SECRET_KEY=<application-encryption-secret>
+```
+
+### Worker: `worker_server/.env`
+
+The worker needs the same MongoDB, Redis, and R2 settings as the API, including the same bucket names and credentials. `PUBLIC_ASSET_URL`, JWT, and session settings are API-side; the worker needs `AES_SECRET_KEY` to process existing encrypted metadata consistently.
+
+```dotenv
+PORT=8001
+MONGODB_URI=<mongodb-connection-string>
+REDIS_HOST=<redis-host-as-seen-from-the-container>
+REDIS_PORT=6379
+REDIS_PASSWORD=
+
+ENDPOINT=https://<CLOUDFLARE_ACCOUNT_ID>.r2.cloudflarestorage.com
+ACCESS_KEY_ID=<r2-s3-access-key-id>
+SECRET_KEY=<r2-s3-secret-access-key>
+BUCKET_RAW_VIDEO=metub-r2
+BUCKET_PROCESSED_VIDEO=metub-r2
+BUCKET_ASSET=metub-r2
+BUCKET_LOG=metub-r2
+AES_SECRET_KEY=<same-application-encryption-secret>
+```
+
+The S3 client uses `ACCESS_KEY_ID` and `SECRET_KEY`. `API_TOKEN` and `ACCESS_KEY_USER` are not substitutes for those S3 credentials in the application configuration.
+
+### Frontend: `frontend/Metube-UI/.env`
+
+For direct Vite development, configure the API origin and the public HLS URL:
+
+```dotenv
+VITE_API_BASE_URL=http://localhost:8000
+VITE_AES_SECRET_KEY=<same-application-encryption-secret>
+VITE_PROCESSED_STORAGE_URL=https://your-r2-custom-domain.example.com/processed-video
+```
+
+In Docker Compose, the frontend is served by Nginx. It proxies `/metube/` and `/socket.io/` to the API, so users access the frontend and API through the same origin. The production frontend build does not require `VITE_API_BASE_URL`.
+
+## Deploy with Docker Compose
+
+The Compose file builds three containers: `api`, `worker`, and `frontend`. MongoDB and Redis remain external services. The frontend listens on host port `8080` by default; configure your firewall and reverse proxy accordingly.
+
+1. Clone the repository on the VPS and enter the project directory.
+2. Create and fill `api_server/.env` and `worker_server/.env` using the settings above. Keep secrets out of Git.
+3. Start Redis on the VPS and confirm it listens on host TCP port `6379`.
+4. Configure MongoDB network access to allow connections from the VPS.
+5. Build and start the application:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+6. Check container state and logs:
+
+   ```bash
+   docker compose ps
+   docker compose logs -f api worker
+   ```
+
+7. Open `http://<VPS-IP>:8080`, or route your website domain to this port through a TLS reverse proxy.
+
+The Compose file maps `host.docker.internal` to the Docker host gateway and sets that as the Redis host by default. This lets API and worker containers reach a Redis container that publishes port `6379` on the host. You can override this default by setting `REDIS_HOST` in the Compose environment. Ensure the existing Redis container is running before starting the application. Redis must not be exposed publicly without authentication and firewall restrictions; restrict port `6379` to trusted traffic.
+
+To stop the application containers:
+
+```bash
+docker compose down
+```
+
+This does not stop or remove the separate MongoDB or Redis services.
+
+### Production networking notes
+
+- Only publish the frontend port. API port `8000` is internal to the Compose network.
+- Terminate HTTPS at a reverse proxy such as Caddy, Nginx, or Traefik and forward requests to port `8080`.
+- Configure R2 CORS with the public frontend origin, including `https://` and the correct hostname.
+- Allow the VPS to make outbound connections to MongoDB and Cloudflare R2.
+- Keep `.env` files readable only by the deployment user and never commit them.
+
+## Run locally without Docker
+
+Install dependencies:
+
+```bash
+npm ci --prefix api_server
+npm ci --prefix worker_server
+npm ci --prefix frontend/Metube-UI
+```
+
+Create the API and worker `.env` files as described above, using a Redis hostname reachable from the host (commonly `localhost`). Set the frontend `.env` for the local API and R2 public media URL. Then start each service in a separate terminal:
+
+```bash
+npm --prefix api_server start
+npm --prefix worker_server start
+npm --prefix frontend/Metube-UI start -- --host 0.0.0.0
+```
+
+The Vite development server normally uses `http://localhost:5173`; the API defaults to port `8000`.
+
+## Useful commands
+
+```bash
+# Build production images
+docker compose build
+
+# Start or update the stack
+docker compose up -d --build
+
+# Follow API and worker logs
+docker compose logs -f api worker
+
+# Check running services
+docker compose ps
+
+# Stop Compose-managed services
+docker compose down
+```
+
+## Troubleshooting
+
+- **Redis connection refused:** verify Redis is running, listening on host port `6379`, and `REDIS_HOST` resolves from inside the application containers. The Compose default is `host.docker.internal` mapped to the Docker host gateway.
+- **MongoDB connection timeout:** check the URI, database credentials, MongoDB network allowlist, and VPS outbound IP.
+- **R2 authorization errors:** use the R2 S3 access key ID and secret, account-specific S3 endpoint, and a token with access to the target bucket.
+- **Browser upload CORS error:** allow the frontend website origin and the `PUT` method in the bucket's CORS policy. A custom media domain is not automatically the website origin.
+- **HLS or thumbnail URLs fail:** confirm the bucket custom domain is public and `PUBLIC_ASSET_URL` / `VITE_PROCESSED_STORAGE_URL` use the correct domain and `processed-video` prefix.
+- **Socket.IO does not connect behind a proxy:** ensure the proxy forwards WebSocket upgrade headers for `/socket.io/`.
+- **Large uploads fail at Nginx:** the bundled Nginx configuration sets a 16 MB request limit. Video bytes upload directly to R2; increase this limit only if your application sends larger files through Nginx.
+
+## Security
+
+- Do not commit `.env` files, API tokens, storage keys, database credentials, or signing secrets.
+- Use least-privilege credentials for MongoDB and R2.
+- Set strong, unique values for `JWT_SECRET`, `SESSION_SECRET`, and `AES_SECRET_KEY`.
+- Restrict Redis and MongoDB network access to trusted hosts.
+- Use HTTPS for the public application and configure R2 CORS for only the required frontend origins.
+
+## License
+
+See the repository's license file, if provided.

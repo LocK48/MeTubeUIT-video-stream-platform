@@ -4,8 +4,9 @@ import { useAuth } from '../context/AuthContext.jsx';
 import { getWatchHistory } from '../service/userDataService.js';
 import { timeAgo } from '../utils/cal_in4.js';
 import { formatOut } from '../../../../worker_server/src/util/helper.js';
+import { processedStorageBase } from '../utils/storageUrl.js';
 
-const s3_url = "https://s3.vn-hcm-1.vietnix.cloud/processed-video";
+const s3_url = processedStorageBase;
 const WatchHistoryPage = () => {
   const { user } = useAuth();
   const [history, setHistory] = useState([]);

@@ -10,6 +10,8 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { getNotifications, markNotificationRead } from '../service/authService.js';
 import { formatOut } from "../../../../worker_server/src/util/helper.js";
 import { getUserPublic } from '../service/authService.js';
+import { processedStorageBase } from '../utils/storageUrl.js';
+import { apiOrigin, apiBase } from '../service/apiBase.js';
 
 const formatRelativeTime = (d) => {
   if (!d) return '';
@@ -44,8 +46,7 @@ const Navbar = ({ goToUploadPage, toggleSidebar }) => {
   const allVideosRef = useRef([]);
   const blurTimerRef = useRef(null);
   const socketRef = useRef(null);
-  const api_port = import.meta.env.VITE_API_SERVER_PORT || 8000;
-  const hostPath = `http://localhost:${api_port}/metube/videos`;
+  const hostPath = `${apiBase}/videos`;
   const userCacheRef = useRef(new Map());
 
 
@@ -74,8 +75,7 @@ const Navbar = ({ goToUploadPage, toggleSidebar }) => {
   // Connect socket and join user room for notifications
   useEffect(() => {
     if (!user) return;
-    const socketUrl = `http://localhost:${api_port}`;
-    const socket = io(socketUrl, { transports: ['websocket', 'polling'] });
+    const socket = io(apiOrigin, { transports: ['websocket', 'polling'] });
     socketRef.current = socket;
     socket.on('connect', () => {
       console.debug('Socket connected', socket.id, 'joining user room', user.id);
@@ -406,7 +406,7 @@ const NotificationItem = ({ note, onOpen }) => {
   }, [note]);
 
   const thumbSrc = note.videoThumbnail ? 
-  `https://s3.vn-hcm-1.vietnix.cloud/processed-video/${note.videoThumbnail}/thumbnail.jpg` : 
+  `${processedStorageBase}/${note.videoThumbnail}/thumbnail.jpg` : 
   'https://tinyurl.com/4tv7h8er';
 
   return (

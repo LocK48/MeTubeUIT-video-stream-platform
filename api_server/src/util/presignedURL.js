@@ -1,8 +1,8 @@
-import vietnix from "../config/storage.js";
+import storage from "../config/storage.js";
 import "dotenv/config";
 
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 
 import { vnTimeString } from "./helper.js";
 
@@ -24,34 +24,20 @@ export const getPresignedURL = async({
     nameDir = "videos"
 }) => {
 
-    if((!validMimeType(contentType)   && nameDir === "videos") || (!validImgMimeType(contentType) && nameDir === "thumbnail")) throw new Error("Unsupported MIME type");
-    if((!validFileExtension(fileName) && nameDir === "videos") || (!validImgExtension(fileName)   && nameDir === "thumbnail")) throw new Error("Invalid or unsupported file extension");
-    if((!validFileSize(fileSize)      && nameDir === "videos") || (!validImgSize(fileSize)        && nameDir === "thumbnail")) throw new Error("File exceeded allowed file size restriction");
+    const isThumbnail = nameDir !== "videos";
+    if ((!isThumbnail && !validMimeType(contentType)) || (isThumbnail && !validImgMimeType(contentType))) throw new Error("Unsupported MIME type");
+    if ((!isThumbnail && !validFileExtension(fileName)) || (isThumbnail && !validImgExtension(fileName))) throw new Error("Invalid or unsupported file extension");
+    if ((!isThumbnail && !validFileSize(fileSize)) || (isThumbnail && !validImgSize(fileSize))) throw new Error("File exceeded allowed file size restriction");
 
     const tmp = `${vnTimeString()}_${fileName}`;
-    const key = `${nameDir}/${tmp}`; // for raw uploaded video
-    const Tkey = `${role}/${decrypting(aes_secret, folderName).substring("videos/".length)}/thumbnail.jpg`; // for user uploaded thumbnail
-    const propSize = (nameDir === "videos")? 500 : 7;
-
-    // Enforce Vietnix to auto reject video file that has unallowed MIME type & size > 500MB
-    // Reject user's uploaded image if size > 7MB
-    const { url, fields } = await createPresignedPost(vietnix, {
-        Bucket: bucket,
-        Key: nameDir === "videos"? key : Tkey,
-        Conditions: [
-            ["content-length-range", 0, propSize * 1024 * 1024],
-            ["eq", "$Content-Type", contentType],
-        ],
-        Fields: {
-            "Content-Type": contentType, 
-            acl: "public-read-write", // *** Required to have this line
-        },
-        Expires: expiresIn,
-    });
+    const key = `raw-video/${nameDir}/${tmp}`;
+    const Tkey = `processed-video/${role}/${decrypting(aes_secret, folderName).substring("videos/".length)}/thumbnail.jpg`;
+    const objectKey = isThumbnail ? Tkey : key;
+    const command = new PutObjectCommand({ Bucket: bucket, Key: objectKey, ContentType: contentType });
+    const url = await getSignedUrl(storage, command, { expiresIn });
 
     return {
         url: url,
-        fields: fields, 
-        videoId: key,
+        videoId: isThumbnail ? Tkey.slice(0, -"/thumbnail.jpg".length) : key,
     }
 }

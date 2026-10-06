@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useNavigate } from "react-router-dom";
 import VideoCard from "../components/VideoCard.jsx";
+import { apiBase } from "../service/apiBase.js";
 
-const api_port = 8000;
-const hostPath = `http://localhost:${api_port}/metube/my-videos`;
+const hostPath = `${apiBase}/my-videos`;
 
 const YourVideosPage = () => {
   const { user } = useAuth();
@@ -61,7 +61,7 @@ const YourVideosPage = () => {
     if (!confirmDelete) return;
 
     try {
-      const response = await fetch(`http://localhost:${api_port}/metube/${videoId}`,
+      const response = await fetch(`${apiBase}/${videoId}`,
         {
           method: "DELETE",
           credentials: "include",

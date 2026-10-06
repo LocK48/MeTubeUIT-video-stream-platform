@@ -18,7 +18,7 @@ const { updateStatus, updateByVideoId, findByVideoId, create, findAll, incViewAn
 export const generatePresignedURL = async (req, res) => {
   try {
     const { fileName, contentType, fileSize } = req.body;
-    const { url, fields, videoId } = await getPresignedURL({
+    const { url, videoId } = await getPresignedURL({
       fileName: fileName,
       bucket: raw_video_bucket,
       contentType: contentType,
@@ -28,7 +28,6 @@ export const generatePresignedURL = async (req, res) => {
     return res.status(200).json({
       url: url,
       key: videoId,
-      fields: fields,
     });
   } catch (err) {
     console.log(`Something wrong with presigned URL service: ${err.message}`);
@@ -141,7 +140,7 @@ export const initStatusDB = async (req, res) => {
 export const uploadThumbS3 = async (req, res) => {
   try {
     const { fileName, contentType, fileSize, folderName } = req.body;
-    const { url, fields, videoId } = await getPresignedURL({
+    const { url, videoId } = await getPresignedURL({
       fileName: fileName,
       folderName: folderName,
       bucket: processed_video_bucket,
@@ -153,7 +152,6 @@ export const uploadThumbS3 = async (req, res) => {
     return res.status(200).json({
       url: url,
       key: videoId,
-      fields: fields,
     });
   } catch (err) {
     console.log(`Can not upload user file to S3: ${err.message}`);

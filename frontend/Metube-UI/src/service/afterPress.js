@@ -1,7 +1,7 @@
 import axios from "axios";
+import { apiBase } from "./apiBase.js";
 
-const api_port = import.meta.env.VITE_API_SERVER_PORT;
-const host = `http://localhost:${api_port}/metube`;
+const host = apiBase;
 
 const apiUpdateDB = async (key, metadata) => {
   try {

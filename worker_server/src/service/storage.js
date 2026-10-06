@@ -16,7 +16,6 @@ export const downloadObjectToFile = async(bucket, key, destinationPath) => {
     const cmd = new GetObjectCommand({
       Bucket: bucket, 
       Key: key,
-      ACL:'public-read', 
     });
     const res = await s3Client.send(cmd);
 
@@ -37,7 +36,6 @@ export const uploadFileToBucket = async(bucket, key, filePath) => {
       Body: fileStream,
       ContentType: getContentType(filePath),
       ContentLength: stat.size,
-      ACL: "public-read-write",
     });
     await s3Client.send(cmd);
     return key;

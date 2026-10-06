@@ -1,7 +1,8 @@
 import axios from "axios";
+import { apiBase } from "./apiBase.js";
 
 const axiosClient = axios.create({
-  baseURL: "http://localhost:8000/metube",
+  baseURL: apiBase,
   withCredentials: true, //
 });
 

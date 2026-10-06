@@ -14,10 +14,11 @@ import { displayTimeFromDB } from "../utils/cal_in4.js";
 import { SubscribeBtn } from "../utils/renderSth.jsx";
 import { getUploader } from "../utils/uploader.js";
 import { notifyError, notifySuccess } from '../helper/popUp.js';
+import { processedStorageBase } from '../utils/storageUrl.js';
+import { apiBase } from '../service/apiBase.js';
 
-const api_port = 8000;
-const hostPath = `http://localhost:${api_port}/metube/videos`;
-const prefix = "https://s3.vn-hcm-1.vietnix.cloud/processed-video";
+const hostPath = `${apiBase}/videos`;
+const prefix = processedStorageBase;
 
 const VideoPage = () => {
   const { id } = useParams();

@@ -1,19 +1,20 @@
 import "dotenv/config";
 import { S3Client } from "@aws-sdk/client-s3";
 
-const vietnix_endpoint = process.env.ENDPOINT;
-const vietnix_access_key_id = process.env.ACCESS_KEY_ID;
-const vietnix_access_key = process.env.SECRET_KEY;
+const storage_endpoint = process.env.ENDPOINT;
+const storage_access_key_id = process.env.ACCESS_KEY_ID;
+const storage_secret_key = process.env.SECRET_KEY;
 
-const vietnix = new S3Client({
-    region: "REGION",
-    endpoint: vietnix_endpoint,
+const storage = new S3Client({
+    region: "auto",
+    endpoint: storage_endpoint,
     credentials: {
-        accessKeyId: vietnix_access_key_id,
-        secretAccessKey: vietnix_access_key,
+        accessKeyId: storage_access_key_id,
+        secretAccessKey: storage_secret_key,
     },
-
-    forcePathStyle: true,
+    forcePathStyle: false,
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
 })
 
-export default vietnix;
+export default storage;

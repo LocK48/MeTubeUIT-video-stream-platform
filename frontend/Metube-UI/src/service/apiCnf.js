@@ -1,12 +1,10 @@
 import axios from "axios";
-
-const api_port = import.meta.env.VITE_API_SERVER_PORT;
-const host = `http://localhost:${api_port}/metube`;
+import { apiBase } from "./apiBase.js";
 
 const apiCnf = async (key) => {
   try {
     const apiRes = await axios.post(
-      `${host}/${key}/cnf`,
+      `${apiBase}/${key}/cnf`,
       {},
       {
         withCredentials: true,

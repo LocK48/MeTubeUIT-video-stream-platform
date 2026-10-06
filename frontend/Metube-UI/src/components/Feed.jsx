@@ -3,10 +3,11 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { timeAgo, displayDuration } from "../utils/cal_in4";
 import { getUploader } from "../utils/uploader.js";
+import { processedStorageBase } from "../utils/storageUrl.js";
+import { apiBase } from "../service/apiBase.js";
 
-const api_port = 8000;
-const hostPath = `http://localhost:${api_port}/metube/videos`;
-const videoPrefix = "https://s3.vn-hcm-1.vietnix.cloud/processed-video";
+const hostPath = `${apiBase}/videos`;
+const videoPrefix = processedStorageBase;
 
 const Feed = () => {
   const [videos, setVideos] = useState([]);

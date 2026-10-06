@@ -332,27 +332,30 @@ export const changeAvatar = async (req, res) => {
       });
     }
 
-    // Upload to Vietnix S3 (bucket: BUCKET_ASSET)
+    // Upload to the configured S3-compatible object storage.
     const bucket = process.env.BUCKET_ASSET;
-    const endpoint = process.env.ENDPOINT?.replace(/\/$/, "") || "";
     const userId = req.user.id;
 
     // determine extension from mimetype
     const ext = req.file.mimetype === "image/png" ? "png" : req.file.mimetype === "image/webp" ? "webp" : "jpg";
-    const key = `avatar/${userId}/avatar.${ext}`;
+    const key = `asset/avatar/${userId}/avatar.${ext}`;
+    const publicBase = (process.env.PUBLIC_ASSET_URL || "").replace(/\/+$/, "");
+    const endpoint = process.env.ENDPOINT || "";
+    if (endpoint.includes(".r2.cloudflarestorage.com") && !publicBase) {
+      throw new Error("Set PUBLIC_ASSET_URL to the public R2 domain for the asset bucket");
+    }
+    const avatarUrl = publicBase
+      ? `${publicBase}/${key}`
+      : `${endpoint.replace(/\/+$/, "")}/${bucket}/${key}`;
 
     const putParams = {
       Bucket: bucket,
       Key: key,
       Body: req.file.buffer,
       ContentType: req.file.mimetype,
-      ACL: "public-read",
     };
 
     await vietnix.send(new PutObjectCommand(putParams));
-
-    // Construct public URL (Vietnix uses endpoint-style)
-    const avatarUrl = `${endpoint}/${bucket}/${key}`;
 
     const updatedUser = await UserService.updateAvatar(req.user.id, avatarUrl);
 

@@ -1,8 +1,8 @@
 import axios from "axios";
+import { apiBase } from "./apiBase.js";
 
 const STORAGE_PREFIX = "MeTube";
-const api_port = 8000;
-const hostPath = `http://localhost:${api_port}/metube/videos`;
+const hostPath = `${apiBase}/videos`;
 
 const getUserKey = (user, suffix) => {
   const id = user?.email || user?.id || user?.name || "guest";

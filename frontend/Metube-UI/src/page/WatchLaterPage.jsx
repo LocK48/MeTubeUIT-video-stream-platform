@@ -5,8 +5,9 @@ import { getWatchLater, removeWatchLater } from '../service/userDataService.js';
 import { displayDuration, timeAgo } from '../utils/cal_in4.js';
 import { formatOut } from '../../../../worker_server/src/util/helper.js';
 import { Trash2, ClockFading } from 'lucide-react';
+import { processedStorageBase } from '../utils/storageUrl.js';
 
-const s3_url = "https://s3.vn-hcm-1.vietnix.cloud/processed-video";
+const s3_url = processedStorageBase;
 
 const WatchLaterPage = () => {
   const { user } = useAuth();

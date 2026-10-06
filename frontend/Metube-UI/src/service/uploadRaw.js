@@ -1,9 +1,9 @@
 import axios from "axios";
 import { encrypting } from "../../../../api_server/src/middleware/AES.js";
+import { apiBase } from "./apiBase.js";
 
-const api_port = import.meta.env.VITE_API_SERVER_PORT;
 const secret_key = import.meta.env.VITE_AES_SECRET_KEY;
-const host = `http://localhost:${api_port}/metube`;
+const host = apiBase;
 
 export const uploadS3 = async (file, progress) => {
   if (!file) throw new Error("Empty file");
@@ -24,14 +24,8 @@ export const uploadS3 = async (file, progress) => {
       },
     );
 
-    const { url, key, fields } = vietnixRep.data;
+    const { url, key } = vietnixRep.data;
     const encryptKey = encrypting(secret_key, key);
-
-    const formData = new FormData();
-    Object.entries(fields).forEach(([k, v]) => {
-      formData.append(k, v);
-    });
-    formData.append("file", file);
 
     // 2> init DB
     await axios.post(
@@ -47,9 +41,10 @@ export const uploadS3 = async (file, progress) => {
     );
 
     // 3> upload S3 (không cần auth)
-    await axios.post(url, formData, {
+    await axios.put(url, file, {
+      headers: { "Content-Type": type },
       onUploadProgress: (e) => {
-        const percent = Math.round((e.loaded * 100) / e.total);
+        const percent = e.total ? Math.round((e.loaded * 100) / e.total) : 0;
         if (progress) progress(percent);
       },
     });

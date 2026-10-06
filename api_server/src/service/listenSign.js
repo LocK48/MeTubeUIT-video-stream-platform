@@ -55,10 +55,11 @@ redisSub.on('message', (channel, message) => {
                         try {
                             if (fromAvatar && typeof fromAvatar === 'string' && !fromAvatar.startsWith('http')) {
                                 const endpoint = (process.env.ENDPOINT || '').replace(/\/+$/, '');
-                                const bucket = process.env.BUCKET_ASSET || 'asset';
-                                // if the stored value already contains bucket or folder, just append to endpoint/bucket
+                                const publicBase = (process.env.PUBLIC_ASSET_URL || '').replace(/\/+$/, '');
                                 const key = fromAvatar.replace(/^\/+/, '');
-                                fromAvatar = `${endpoint}/${bucket}/${key}`;
+                                fromAvatar = publicBase
+                                    ? `${publicBase}/${key.startsWith('asset/') ? key : `asset/${key}`}`
+                                    : `${endpoint}/${process.env.BUCKET_ASSET || 'asset'}/${key}`;
                             }
                         } catch (e) {
                             // noop - fallback to raw value

@@ -1,0 +1,8 @@
+.git
+.gitignore
+**/node_modules
+**/dist
+api_server/.env
+worker_server/.env
+**/npm-debug.log*
+**/access.log

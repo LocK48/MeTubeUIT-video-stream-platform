@@ -3,10 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import { Play } from 'lucide-react';
 import { timeAgo, displayDuration } from '../utils/cal_in4';
 import { formatOut } from '../../../../worker_server/src/util/helper.js';
+import { processedStorageBase } from '../utils/storageUrl.js';
+import { apiBase } from '../service/apiBase.js';
 
-const api_port = 8000;
-const hostPath = `http://localhost:${api_port}/metube/videos`;
-const videoPrefix = 'https://s3.vn-hcm-1.vietnix.cloud/processed-video';
+const hostPath = `${apiBase}/videos`;
+const videoPrefix = processedStorageBase;
 
 const SearchPage = () => {
   const location = useLocation();
